@@ -1,115 +1,109 @@
-(function ( window, document, $ ) {
-  var metaQuery = {
-    breakpoints: {},
-    _namedEvents: {},
-    _eventMatchCache: {},
-    _globalEvents: [],
-    onBreakpointChange: function () {
-      var args = Array.prototype.slice.call(arguments),
-            fn = args.pop(),
-            name = args.pop();
+// jQuery metaquery 1.0.1 @ SentiOne custom
 
-      if ( typeof name === "undefined" ) {
-        metaQuery._globalEvents.push( fn );
-      } else {
-        ( metaQuery._namedEvents[name] = [] ).push( fn );
-      }
-      mqChange();
-    }
-  },
+(function (window, document, $) {
+	var metaQuery = {
+			breakpoints: {},
+			_namedEvents: {},
+			_eventMatchCache: {},
+			_globalEvents: [],
+			onBreakpointChange: function () {
+				var args = Array.prototype.slice.call(arguments),
+					fn = args.pop(),
+					name = args.pop();
 
-  debounce = function( func, wait ) {
-    var args,
-        thisArg,
-        timeoutId;
+				if (typeof name === "undefined") {
+					metaQuery._globalEvents.push(fn);
+				} else {
+					(metaQuery._namedEvents[name] = []).push(fn);
+				}
+				mqChange();
+			}
+		},
 
-    function delayed() {
-      timeoutId = null;
-      func.apply( thisArg, args );
-    }
+		debounce = function (func, wait) {
+			var args,
+				thisArg,
+				timeoutId;
 
-    return function() {
-      window.clearTimeout( timeoutId );
-      timeoutId = window.setTimeout( delayed, wait );
-    };
-  },
+			function delayed() {
+				timeoutId = null;
+				func.apply(thisArg, args);
+			}
 
-  updateClasses = function ( matches, name ) {
-    $( 'html' ).toggleClass( 'breakpoint-' + name, matches );
-  },
+			return function () {
+				window.clearTimeout(timeoutId);
+				timeoutId = window.setTimeout(delayed, wait);
+			};
+		},
 
-  updateElements = function ( matches, name ) {
-    if ( !matches ) { return; }
+		updateClasses = function (matches, name) {
+			$('html').toggleClass('breakpoint-' + name, matches);
+		},
 
-    $( 'img[data-mq-src]' ).each(function () {
-      var $img = $( this ),
-          attr = $img.attr( 'data-mq-src');
+	// Called when a media query changes state
+		mqChange = function () {
+			for (var name in metaQuery.breakpoints) {
+				var query = metaQuery.breakpoints[name],
+					matches = window.matchMedia(query).matches;
 
-      $img.attr( 'src', attr.replace( '[breakpoint]', name ) );
-    });
-  },
+				updateClasses(matches, name);
 
-  // Called when a media query changes state
-  mqChange = function () {
-    for ( var name in metaQuery.breakpoints ) {
-      var query = metaQuery.breakpoints[name],
-          matches = window.matchMedia( query ).matches;
+				// Call events bound to a given breakpoint
+				if (metaQuery._namedEvents[name] && metaQuery._eventMatchCache[name] !== matches) {
+					metaQuery._eventMatchCache[name] = matches;
+					for (var i = 0; i < metaQuery._namedEvents[name].length; i++) {
+						var fn = metaQuery._namedEvents[name][i];
 
-      // Call events bound to a given breakpoint
-      if ( metaQuery._namedEvents[name] && metaQuery._eventMatchCache[name] !== matches ) {
-        metaQuery._eventMatchCache[name] = matches;
-        for( var i = 0; i < metaQuery._namedEvents[name].length; i++ ) {
-          var fn = metaQuery._namedEvents[name][i];
+						if (typeof fn === 'function') {
+							fn(matches);
+						}
+					}
+				}
 
-          if( typeof fn === 'function' ) { fn( matches ); }
-        }
-      }
+				// call any global events
+				if (matches) {
+					for (var j = 0; j < metaQuery._globalEvents.length; j++) {
+						var gfn = metaQuery._globalEvents[j];
+						if (typeof gfn === 'function') {
+							gfn();
+						}
+					}
+				}
+			}
+		},
 
-      // call any global events
-      if ( matches ) {
-        for ( var j = 0; j < metaQuery._globalEvents.length; j++ ) {
-          var gfn = metaQuery._globalEvents[j];
-          if ( typeof gfn === 'function' ) { gfn(); }
-        }
-      }
-
-      updateClasses( matches, name );
-      updateElements( matches, name );
-    }
-  },
-
-  collectMediaQueries = function () {
-    $( 'meta[name=breakpoint]' ).each( function () {
-      var $el = $( this );
-      metaQuery.breakpoints[$el.attr( 'content' )] = $el.attr( 'media' );
-    });
-  },
+		collectMediaQueries = function () {
+			$('meta[name=breakpoint]').each(function () {
+				var $el = $(this);
+				metaQuery.breakpoints[$el.attr('content')] = $el.attr('media');
+			});
+		},
 
 
-  // If the META tags are defined above this script,
-  // we don't need to wait for domReady to set the breakpoint
-  // class on the HTML element, fighting the FOUT.
-  preDomReady = function () {
-    collectMediaQueries();
-    mqChange();
-  },
+	// If the META tags are defined above this script,
+	// we don't need to wait for domReady to set the breakpoint
+	// class on the HTML element, fighting the FOUT.
+		preDomReady = function () {
+			collectMediaQueries();
+			mqChange();
+		},
 
-  // After domReady, we can be sure all our META and IMG tags
-  // are in the DOM.
-  onDomReady = function () {
-    collectMediaQueries();
+	// After domReady, we can be sure all our META and IMG tags
+	// are in the DOM.
+		onDomReady = function () {
+			collectMediaQueries();
 
-    $( window ).on( 'resize', debounce ( function () {
-      mqChange();
-    }, 50));
+			$(window).on('resize', debounce(function () {
+				mqChange();
+			}, 50));
 
-    mqChange();
-  };
+			mqChange();
+		};
 
-  window.metaQuery = metaQuery;
+	window.metaQuery = metaQuery;
 
-  preDomReady();
-  $(function () {
-    onDomReady();
-  });
-}( this, this.document, jQuery ));
+	preDomReady();
+	$(function () {
+		onDomReady();
+	});
+}(this, this.document, jQuery));
